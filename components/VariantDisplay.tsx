@@ -13,10 +13,8 @@ const VariantDisplay: React.FC<VariantDisplayProps> = ({ result }) => {
     if (!result || result.variants.length === 0) return '';
     
     let output = '';
-    // Produktnavn er nå en del av variantradene, så ingen egen linje for det her.
-    // Overskrifter for de to cellene
-    output += result.headers.join('\t') + '\n';
     // Hver variant er nå en array med to strenger [cell1, cell2]
+    // Overskriftene legges ikke lenger til her for kopiering.
     output += result.variants.map(variantCells => variantCells.join('\t')).join('\n');
     return output;
   }, [result]);
@@ -42,7 +40,6 @@ const VariantDisplay: React.FC<VariantDisplayProps> = ({ result }) => {
     );
   }
   
-  // Sjekk om det faktisk er innhold å vise (f.eks. kun produktnavn uten attributter kan gi en rad)
   const hasContentToShow = result.variants.some(variant => variant.some(cell => cell.trim() !== ''));
   if (!hasContentToShow) {
      return (
@@ -73,8 +70,6 @@ const VariantDisplay: React.FC<VariantDisplayProps> = ({ result }) => {
         </button>
       </div>
       
-      {/* Produktnavn vises ikke lenger separat her, da det er en del av celle 1 */}
-
       <div className="overflow-x-auto max-h-[500px] border border-slate-200 rounded-md">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-100 sticky top-0">
@@ -100,7 +95,7 @@ const VariantDisplay: React.FC<VariantDisplayProps> = ({ result }) => {
                 ))}
               </tr>
             ))}
-             {result.variants.length === 0 && ( // Should be caught by earlier checks, but for safety
+             {result.variants.length === 0 && ( 
               <tr>
                 <td colSpan={result.headers.length || 1} className="px-6 py-4 text-center text-sm text-slate-500">
                   Ingen kombinasjoner funnet.
