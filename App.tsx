@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { Attribute, CombinationResult } from './types';
 import AttributeItem from './components/AttributeItem';
@@ -5,7 +6,9 @@ import VariantDisplay from './components/VariantDisplay';
 import PlusIcon from './components/icons/PlusIcon';
 
 const App: React.FC = () => {
+  const [sNumber, setSNumber] = useState<string>('');
   const [productName, setProductName] = useState<string>('');
+  const [variantCodeBase, setVariantCodeBase] = useState<string>('');
   const [attributes, setAttributes] = useState<Attribute[]>([]);
   const [generatedResult, setGeneratedResult] = useState<CombinationResult | null>(null);
 
@@ -67,9 +70,49 @@ const App: React.FC = () => {
     setGeneratedResult(null);
   }, []);
 
-  const generateCombinations = useCallback((currentAttributes: Attribute[], currentProductName: string): CombinationResult => {
-    const newHeaders = ["Produktbeskrivelse Del 1 (maks 100 tegn)", "Produktbeskrivelse Del 2 (maks 50 tegn)"];
+  const generateVariantCode = (baseCode: string, index: number): string => {
+    const trimmedBaseCode = baseCode.trim();
+    if (!trimmedBaseCode) return '';
+
+    // Regex to find a prefix, a specific separator ([.-]), and a number at the end
+    const patternWithSeparator = /^(.*)([.-])(\d+)$/;
+    const match = trimmedBaseCode.match(patternWithSeparator);
+
+    let prefix: string;
+    let separator: string;
+    let startNum: number;
+    let currentNum: number;
+
+    if (match) {
+      // Base code ends with a known separator and a number
+      // e.g., "SI-168-1" -> prefix="SI-168", separator="-", startNum=1
+      // e.g., "ABC.3" -> prefix="ABC", separator=".", startNum=3
+      prefix = match[1];
+      separator = match[2]; // Use the detected separator
+      startNum = parseInt(match[3], 10);
+      currentNum = startNum + index;
+    } else {
+      // Base code does not end with a separator and number (e.g., "SI-168", "ABC")
+      // Default to using "." as the separator and starting sequence from 1
+      prefix = trimmedBaseCode;
+      separator = "."; // Default separator is '.'
+      startNum = 1;
+      currentNum = startNum + index;
+    }
+    return `${prefix}${separator}${currentNum}`;
+  };
+  
+
+  const generateCombinations = useCallback((
+    currentSNumber: string,
+    currentProductName: string,
+    currentVariantCodeBase: string,
+    currentAttributes: Attribute[]
+  ): CombinationResult => {
+    const newHeaders = ["S-nummer", "Variantkode", "Produktbeskrivelse Del 1 (maks 100 tegn)", "Produktbeskrivelse Del 2 (maks 50 tegn)"];
+    const trimmedSNumber = currentSNumber.trim();
     const trimmedProductName = currentProductName.trim();
+    const trimmedVariantCodeBase = currentVariantCodeBase.trim();
 
     const validAttributes = currentAttributes
       .map(attr => ({
@@ -79,18 +122,28 @@ const App: React.FC = () => {
       }))
       .filter(attr => attr.name !== '' && attr.values.length > 0);
 
-    if (validAttributes.length === 0) {
-      if (!trimmedProductName) {
-        return { productName: currentProductName, headers: newHeaders, variants: [] };
-      }
-      const cell1 = trimmedProductName.substring(0, 100);
-      const cell2 = trimmedProductName.length > 100 ? trimmedProductName.substring(100, 150) : "";
-      return { 
-        productName: currentProductName, 
-        headers: newHeaders, 
-        variants: [[cell1, cell2]] 
-      };
+    // If no S-number, no product name, no variant code base and no valid attributes, return empty
+    if (!trimmedSNumber && !trimmedProductName && !trimmedVariantCodeBase && validAttributes.length === 0) {
+      return { productName: currentProductName, headers: newHeaders, variants: [] };
     }
+    
+    // Base case: No attributes, or attributes result in no combinations.
+    // We generate one line if S-Nummer, Produktnavn or Variantkode Grunnlag is present.
+    if (validAttributes.length === 0) {
+        const uniqueVariantCode = generateVariantCode(trimmedVariantCodeBase, 0);
+        const cell1ProdName = trimmedProductName.substring(0, 100);
+        const cell2ProdName = trimmedProductName.length > 100 ? trimmedProductName.substring(100, 150) : "";
+        if (trimmedSNumber || trimmedProductName || trimmedVariantCodeBase) {
+             return { 
+                productName: currentProductName, 
+                headers: newHeaders, 
+                variants: [[trimmedSNumber, uniqueVariantCode, cell1ProdName, cell2ProdName]] 
+            };
+        } else { // Should not be reached due to earlier check, but as a safeguard
+            return { productName: currentProductName, headers: newHeaders, variants: [] };
+        }
+    }
+
 
     const attributeValueArrays = validAttributes.map(attr => attr.values);
     const rawAttributeCombinations: string[][] = []; 
@@ -100,10 +153,6 @@ const App: React.FC = () => {
         if (currentCombination.length > 0) {
           rawAttributeCombinations.push([...currentCombination]);
         }
-        return;
-      }
-      if (attributeValueArrays[index].length === 0) { // Should be filtered by validAttributes, but for safety
-        recurse(index + 1, currentCombination);
         return;
       }
       const attributeName = validAttributes[index].name;
@@ -116,14 +165,22 @@ const App: React.FC = () => {
 
     recurse(0, []);
 
+    // If attributes were defined but resulted in no actual combinations
     if (rawAttributeCombinations.length === 0) {
-        if (!trimmedProductName) {
+        const uniqueVariantCode = generateVariantCode(trimmedVariantCodeBase, 0);
+        const cell1ProdName = trimmedProductName.substring(0, 100);
+        const cell2ProdName = trimmedProductName.length > 100 ? trimmedProductName.substring(100, 150) : "";
+         if (trimmedSNumber || trimmedProductName || trimmedVariantCodeBase) {
+            return { 
+                productName: currentProductName, 
+                headers: newHeaders, 
+                variants: [[trimmedSNumber, uniqueVariantCode, cell1ProdName, cell2ProdName]] 
+            };
+        } else {
              return { productName: currentProductName, headers: newHeaders, variants: [] };
         }
-        const cell1 = trimmedProductName.substring(0, 100);
-        const cell2 = trimmedProductName.length > 100 ? trimmedProductName.substring(100, 150) : "";
-        return { productName: currentProductName, headers: newHeaders, variants: [[cell1, cell2]] };
     }
+    
 
     let globalMinAttributesToFitInCell1 = Infinity;
 
@@ -134,18 +191,22 @@ const App: React.FC = () => {
         if (trimmedProductName.length > 100) {
             attributesConsideredForCell1Count = 0; 
         } else {
-            for (const attributeString of currentAttributeCombo) {
-                let prospectiveTempCell1 = tempCell1Construction;
-                // Add separator: space if after product name, or ", " if after another attribute
-                if (prospectiveTempCell1 && attributeString) { 
-                    prospectiveTempCell1 += (attributesConsideredForCell1Count > 0 ? ", " : " ");
-                } else if (!prospectiveTempCell1 && attributeString && attributesConsideredForCell1Count > 0) {
-                     prospectiveTempCell1 += ", "; // Handles no product name, but multiple attributes
-                }
-                prospectiveTempCell1 += attributeString;
+            for (const attributeString of currentAttributeCombo) { // attributeString is like "Color: Red"
+                if (attributeString.trim().length === 0) continue; // Skip empty/whitespace-only attribute strings
 
-                if (prospectiveTempCell1.length <= 100) {
-                    tempCell1Construction = prospectiveTempCell1;
+                let testCombination: string;
+                if (tempCell1Construction.trim().length === 0) { // If product name is empty
+                    testCombination = attributeString;
+                } else {
+                    if (attributesConsideredForCell1Count === 0) { // First attribute after product name
+                        testCombination = tempCell1Construction + " " + attributeString;
+                    } else { // Subsequent attributes
+                        testCombination = tempCell1Construction + ", " + attributeString;
+                    }
+                }
+
+                if (testCombination.length <= 100) {
+                    tempCell1Construction = testCombination;
                     attributesConsideredForCell1Count++;
                 } else {
                     break; 
@@ -155,10 +216,18 @@ const App: React.FC = () => {
         globalMinAttributesToFitInCell1 = Math.min(globalMinAttributesToFitInCell1, attributesConsideredForCell1Count);
     }
     
-    if (globalMinAttributesToFitInCell1 === Infinity) globalMinAttributesToFitInCell1 = 0; // Fallback
+    if (globalMinAttributesToFitInCell1 === Infinity && trimmedProductName.length <= 100 && rawAttributeCombinations.some(combo => combo.length > 0)) {
+         globalMinAttributesToFitInCell1 = 0;
+    } else if (globalMinAttributesToFitInCell1 === Infinity && trimmedProductName.length > 100) {
+        globalMinAttributesToFitInCell1 = 0;
+    } else if (globalMinAttributesToFitInCell1 === Infinity && rawAttributeCombinations.every(combo => combo.length === 0)){
+        globalMinAttributesToFitInCell1 = 0; 
+    }
+
 
     const processedVariants: string[][] = [];
-    for (const currentAttributeCombo of rawAttributeCombinations) {
+    rawAttributeCombinations.forEach((currentAttributeCombo, i) => {
+        const uniqueVariantCode = generateVariantCode(trimmedVariantCodeBase, i);
         let productNamePartForCell1 = trimmedProductName;
         let productNameOverflowForCell2 = "";
 
@@ -175,40 +244,46 @@ const App: React.FC = () => {
         let cell1Final = productNamePartForCell1;
         const attributesStringForCell1 = attributesListForCell1.join(", ");
         if (attributesListForCell1.length > 0) {
-            if (cell1Final) { 
+            if (cell1Final.trim() && attributesStringForCell1.trim()) { 
                 cell1Final += " " + attributesStringForCell1;
-            } else { 
+            } else if (attributesStringForCell1.trim()) { 
                 cell1Final = attributesStringForCell1;
             }
         }
-        // This final cell1 string should naturally be <= 100 due to globalMinAttributesToFitInCell1 logic.
-        // A final truncate is mostly a safeguard for extreme edge cases not caught by globalMin...
         cell1Final = cell1Final.substring(0, 100); 
 
         let cell2Final = productNameOverflowForCell2;
         const attributesStringForCell2 = attributesListForCell2.join(", ");
         if (attributesListForCell2.length > 0) {
-            if (cell2Final) { 
-                cell2Final += (cell2Final.endsWith(" ") || cell2Final === "" ? "" : " ") + attributesStringForCell2;
-            } else { 
+            if (cell2Final.trim() && attributesStringForCell2.trim()) { 
+                 cell2Final += (productNameOverflowForCell2.trim() ? ", " : "") + attributesStringForCell2;
+            } else if (attributesStringForCell2.trim()) { 
                 cell2Final = attributesStringForCell2;
             }
         }
+
+        if (productNameOverflowForCell2.trim().length === 0 && cell2Final.startsWith(", ")) {
+            cell2Final = cell2Final.substring(2);
+        }
+
         cell2Final = cell2Final.substring(0, 50);
         
-        processedVariants.push([cell1Final, cell2Final]);
-    }
+        processedVariants.push([trimmedSNumber, uniqueVariantCode, cell1Final, cell2Final]);
+    });
 
     return { productName: currentProductName, headers: newHeaders, variants: processedVariants };
   }, []);
   
 
   const handleGenerateVariants = useCallback(() => {
-    const result = generateCombinations(attributes, productName);
+    const result = generateCombinations(sNumber, productName, variantCodeBase, attributes);
     setGeneratedResult(result);
-  }, [attributes, productName, generateCombinations]);
+  }, [sNumber, attributes, productName, variantCodeBase, generateCombinations]);
 
-  const canGenerate = attributes.some(attr => attr.name.trim() !== '' && attr.values.some(v => v.value.trim() !== '')) || productName.trim() !== '';
+  const canGenerate = sNumber.trim() !== '' || 
+                      productName.trim() !== '' || 
+                      variantCodeBase.trim() !== '' ||
+                      attributes.some(attr => attr.name.trim() !== '' && attr.values.some(v => v.value.trim() !== ''));
 
 
   return (
@@ -217,70 +292,103 @@ const App: React.FC = () => {
         <header className="mb-10 text-center">
           <h1 className="text-4xl font-bold text-sky-700">Produktvariantgenerator</h1>
           <p className="mt-2 text-lg text-slate-600">
-            Definer attributter og generer alle unike produktkombinasjoner.
+            Definer produktattributter og generer alle unike kombinasjoner.
           </p>
         </header>
 
-        <section className="mb-8 p-6 bg-white rounded-lg shadow-lg border border-slate-200">
-          <h2 className="text-2xl font-semibold text-slate-700 mb-2">Produktinformasjon</h2>
-           <label htmlFor="productName" className="block text-sm font-medium text-slate-600 mb-1">Produktnavn</label>
-          <input
-            id="productName"
-            type="text"
-            placeholder="F.eks. 'Elegant Kontorstol'"
-            value={productName}
-            onChange={(e) => {
-              setProductName(e.target.value);
-              setGeneratedResult(null); 
-            }}
-            className="w-full p-3 rounded-md transition-shadow mb-6 bg-slate-700 text-slate-50 placeholder-slate-400 border border-slate-600 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-          />
-          
-          <h2 className="text-2xl font-semibold text-slate-700 mb-4">Attributter</h2>
-          {attributes.length === 0 && (
-            <div className="text-center py-4 px-3 bg-slate-50 rounded-md border border-slate-200">
-                <p className="text-slate-500">Ingen attributter lagt til ennå. </p>
-                <p className="text-slate-500">Klikk på knappen under for å starte.</p>
-            </div>
-          )}
-          <div className="space-y-6 mb-6">
-            {attributes.map((attr, index) => (
-              <AttributeItem
-                key={attr.id}
-                attribute={attr}
-                index={index}
-                onAttributeNameChange={handleAttributeNameChange}
-                onAddValue={handleAddValueToAttribute}
-                onValueChange={handleAttributeValueChange}
-                onRemoveValue={handleRemoveValueFromAttribute}
-                onRemoveAttribute={handleRemoveAttribute}
+        <section className="bg-white p-6 rounded-lg shadow-md border border-slate-200 mb-6">
+          <h2 className="text-xl font-semibold text-slate-700 mb-4">Produktinformasjon</h2>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="productName" className="block text-sm font-medium text-slate-600 mb-1">
+                Produktnavn (valgfritt)
+              </label>
+              <input
+                type="text"
+                id="productName"
+                value={productName}
+                onChange={(e) => { setProductName(e.target.value); setGeneratedResult(null); }}
+                placeholder="F.eks. Kontorstol Ergonomisk"
+                className="w-full p-2 rounded-md transition-shadow bg-slate-700 text-slate-50 placeholder-slate-400 border border-slate-600 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
               />
-            ))}
+            </div>
+            <div>
+              <label htmlFor="sNumber" className="block text-sm font-medium text-slate-600 mb-1">
+                S-nummer (valgfritt)
+              </label>
+              <input
+                type="text"
+                id="sNumber"
+                value={sNumber}
+                onChange={(e) => { setSNumber(e.target.value); setGeneratedResult(null); }}
+                placeholder="F.eks. 12345"
+                className="w-full p-2 rounded-md transition-shadow bg-slate-700 text-slate-50 placeholder-slate-400 border border-slate-600 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="variantCodeBase" className="block text-sm font-medium text-slate-600 mb-1">
+                Variantkode Grunnlag (valgfritt)
+              </label>
+              <input
+                type="text"
+                id="variantCodeBase"
+                value={variantCodeBase}
+                onChange={(e) => { setVariantCodeBase(e.target.value); setGeneratedResult(null);}}
+                placeholder="F.eks. SI-168 eller ABC-XYZ.1 eller MINVare-10"
+                className="w-full p-2 rounded-md transition-shadow bg-slate-700 text-slate-50 placeholder-slate-400 border border-slate-600 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Systemet legger til ".1", ".2" osv. hvis ingen nummerering finnes. Hvis basen er "Vare-1", blir det "Vare-1", "Vare-2". Hvis "Vare.5", blir det "Vare.5", "Vare.6".
+              </p>
+            </div>
           </div>
-          <button
-            onClick={handleAddAttribute}
-            className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md shadow-md hover:shadow-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-            aria-label="Legg til nytt attributt"
-          >
-            <PlusIcon />
-            <span>Legg til attributt</span>
-          </button>
         </section>
 
-        <section className="text-center mb-8">
+        <section className="mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-slate-700">Attributter</h2>
+            <button
+              onClick={handleAddAttribute}
+              className="flex items-center space-x-2 bg-sky-500 hover:bg-sky-600 text-white font-medium py-2 px-4 rounded-md transition-colors shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+            >
+              <PlusIcon />
+              <span>Legg til attributt</span>
+            </button>
+          </div>
+          {attributes.length === 0 ? (
+            <p className="text-slate-500 text-center py-4">Ingen attributter lagt til. Klikk på knappen for å legge til den første.</p>
+          ) : (
+            <div className="space-y-6">
+              {attributes.map((attr, index) => (
+                <AttributeItem
+                  key={attr.id}
+                  attribute={attr}
+                  index={index}
+                  onAttributeNameChange={handleAttributeNameChange}
+                  onAddValue={handleAddValueToAttribute}
+                  onValueChange={handleAttributeValueChange}
+                  onRemoveValue={handleRemoveValueFromAttribute}
+                  onRemoveAttribute={handleRemoveAttribute}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <div className="text-center mb-8">
           <button
             onClick={handleGenerateVariants}
             disabled={!canGenerate}
-            className="bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:shadow-xl transition-all duration-150 text-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-8 rounded-lg text-lg shadow-md hover:shadow-lg transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             Generer Varianter
           </button>
-        </section>
+        </div>
 
         {generatedResult && <VariantDisplay result={generatedResult} />}
-        
+
         <footer className="mt-12 text-center text-sm text-slate-500">
-          <p>&copy; {new Date().getFullYear()} Produktvariantgenerator. Bygget med React & Tailwind CSS.</p>
+          <p>&copy; {new Date().getFullYear()} Produktvariantgenerator. Alle rettigheter reservert.</p>
         </footer>
       </div>
     </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { CombinationResult } from '../types';
 import CopyIcon from './icons/CopyIcon';
@@ -12,11 +13,8 @@ const VariantDisplay: React.FC<VariantDisplayProps> = ({ result }) => {
   const formatForClipboard = useCallback(() => {
     if (!result || result.variants.length === 0) return '';
     
-    let output = '';
-    // Hver variant er nå en array med to strenger [cell1, cell2]
-    // Overskriftene legges ikke lenger til her for kopiering.
-    output += result.variants.map(variantCells => variantCells.join('\t')).join('\n');
-    return output;
+    // Hver variant er nå en array med fire strenger [sNummer, variantCode, cell1, cell2]
+    return result.variants.map(variantCells => variantCells.join('\t')).join('\n');
   }, [result]);
 
   const handleCopyToClipboard = useCallback(() => {
@@ -35,12 +33,12 @@ const VariantDisplay: React.FC<VariantDisplayProps> = ({ result }) => {
   if (!result || result.variants.length === 0) {
     return (
       <div className="mt-8 p-6 bg-white rounded-lg shadow-md border border-slate-200 text-center">
-        <p className="text-slate-500">Ingen varianter generert. Legg til produktnavn og/eller attributter og klikk "Generer Varianter".</p>
+        <p className="text-slate-500">Ingen varianter generert. Legg til S-nummer, produktnavn, variantkode grunnlag og/eller attributter og klikk "Generer Varianter".</p>
       </div>
     );
   }
   
-  const hasContentToShow = result.variants.some(variant => variant.some(cell => cell.trim() !== ''));
+  const hasContentToShow = result.variants.some(variant => variant.some(cell => cell && cell.trim() !== ''));
   if (!hasContentToShow) {
      return (
       <div className="mt-8 p-6 bg-white rounded-lg shadow-md border border-slate-200 text-center">
@@ -48,7 +46,6 @@ const VariantDisplay: React.FC<VariantDisplayProps> = ({ result }) => {
       </div>
     );
   }
-
 
   return (
     <div className="mt-8 p-6 bg-white rounded-lg shadow-md border border-slate-200">
@@ -78,7 +75,7 @@ const VariantDisplay: React.FC<VariantDisplayProps> = ({ result }) => {
                 <th
                   key={index}
                   scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                  className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider whitespace-nowrap"
                 >
                   {header}
                 </th>
@@ -89,7 +86,7 @@ const VariantDisplay: React.FC<VariantDisplayProps> = ({ result }) => {
             {result.variants.map((variantCells, rowIndex) => (
               <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                 {variantCells.map((cellValue, colIndex) => (
-                  <td key={colIndex} className="px-6 py-4 whitespace-pre-wrap break-words text-sm text-slate-700 max-w-md">
+                  <td key={colIndex} className="px-6 py-4 whitespace-pre-wrap break-words text-sm text-slate-700 max-w-xs">
                     {cellValue}
                   </td>
                 ))}
