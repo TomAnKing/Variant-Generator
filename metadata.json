@@ -1,5 +1,6 @@
 {
   "name": "Produktvariantgenerator",
   "description": "En applikasjon for å generere produktvarianter basert på definerte attributter og deres verdier. Resultatene kan enkelt kopieres til Excel.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "prompt": ""
 }

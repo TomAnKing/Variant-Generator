@@ -181,49 +181,19 @@ const App: React.FC = () => {
         }
     }
     
-
-    let globalMinAttributesToFitInCell1 = Infinity;
-
-    for (const currentAttributeCombo of rawAttributeCombinations) {
-        let tempCell1Construction = trimmedProductName;
-        let attributesConsideredForCell1Count = 0;
-
-        if (trimmedProductName.length > 100) {
-            attributesConsideredForCell1Count = 0; 
-        } else {
-            for (const attributeString of currentAttributeCombo) { // attributeString is like "Color: Red"
-                if (attributeString.trim().length === 0) continue; // Skip empty/whitespace-only attribute strings
-
-                let testCombination: string;
-                if (tempCell1Construction.trim().length === 0) { // If product name is empty
-                    testCombination = attributeString;
-                } else {
-                    if (attributesConsideredForCell1Count === 0) { // First attribute after product name
-                        testCombination = tempCell1Construction + " " + attributeString;
-                    } else { // Subsequent attributes
-                        testCombination = tempCell1Construction + ", " + attributeString;
-                    }
-                }
-
-                if (testCombination.length <= 100) {
-                    tempCell1Construction = testCombination;
-                    attributesConsideredForCell1Count++;
-                } else {
-                    break; 
-                }
-            }
-        }
-        globalMinAttributesToFitInCell1 = Math.min(globalMinAttributesToFitInCell1, attributesConsideredForCell1Count);
-    }
+    const totalValidAttributes = validAttributes.length;
+    let numAttrsToIncludeInCell1: number;
     
-    if (globalMinAttributesToFitInCell1 === Infinity && trimmedProductName.length <= 100 && rawAttributeCombinations.some(combo => combo.length > 0)) {
-         globalMinAttributesToFitInCell1 = 0;
-    } else if (globalMinAttributesToFitInCell1 === Infinity && trimmedProductName.length > 100) {
-        globalMinAttributesToFitInCell1 = 0;
-    } else if (globalMinAttributesToFitInCell1 === Infinity && rawAttributeCombinations.every(combo => combo.length === 0)){
-        globalMinAttributesToFitInCell1 = 0; 
+    if (trimmedProductName.length > 100) {
+      numAttrsToIncludeInCell1 = 0;
+    } else if (totalValidAttributes === 3) {
+      numAttrsToIncludeInCell1 = 2;
+    } else if (totalValidAttributes === 2) {
+      numAttrsToIncludeInCell1 = 1;
+    } else {
+      // General rule for other cases, like 1, 4, 5... attributes
+      numAttrsToIncludeInCell1 = Math.ceil(totalValidAttributes / 2);
     }
-
 
     const processedVariants: string[][] = [];
     rawAttributeCombinations.forEach((currentAttributeCombo, i) => {
@@ -235,8 +205,6 @@ const App: React.FC = () => {
             productNamePartForCell1 = trimmedProductName.substring(0, 100);
             productNameOverflowForCell2 = trimmedProductName.substring(100);
         }
-        
-        const numAttrsToIncludeInCell1 = (trimmedProductName.length > 100) ? 0 : globalMinAttributesToFitInCell1;
         
         const attributesListForCell1 = currentAttributeCombo.slice(0, numAttrsToIncludeInCell1);
         const attributesListForCell2 = currentAttributeCombo.slice(numAttrsToIncludeInCell1);
