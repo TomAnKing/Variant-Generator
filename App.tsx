@@ -9,6 +9,10 @@ const App: React.FC = () => {
   const [sNumber, setSNumber] = useState<string>('');
   const [productName, setProductName] = useState<string>('');
   const [variantCodeBase, setVariantCodeBase] = useState<string>('');
+  const [purchasePrice, setPurchasePrice] = useState<string>('');
+  const [sellingPrice, setSellingPrice] = useState<string>('');
+  const [currencyCode, setCurrencyCode] = useState<string>('');
+  const [supplierName, setSupplierName] = useState<string>('');
   const [attributes, setAttributes] = useState<Attribute[]>([]);
   const [generatedResult, setGeneratedResult] = useState<CombinationResult | null>(null);
 
@@ -107,12 +111,29 @@ const App: React.FC = () => {
     currentSNumber: string,
     currentProductName: string,
     currentVariantCodeBase: string,
-    currentAttributes: Attribute[]
+    currentAttributes: Attribute[],
+    currentPurchasePrice: string,
+    currentSellingPrice: string,
+    currentCurrencyCode: string,
+    currentSupplierName: string
   ): CombinationResult => {
-    const newHeaders = ["S-nummer", "Variantkode", "Produktbeskrivelse Del 1 (maks 100 tegn)", "Produktbeskrivelse Del 2 (maks 50 tegn)"];
+    const newHeaders = [
+      "S-nummer",
+      "Variantkode",
+      "Produktbeskrivelse Del 1 (maks 100 tegn)",
+      "Produktbeskrivelse Del 2 (maks 50 tegn)",
+      "Innpris",
+      "Utpris",
+      "Valutakode",
+      "Leverandørnavn"
+    ];
     const trimmedSNumber = currentSNumber.trim();
     const trimmedProductName = currentProductName.trim();
     const trimmedVariantCodeBase = currentVariantCodeBase.trim();
+    const trimmedPurchasePrice = currentPurchasePrice.trim();
+    const trimmedSellingPrice = currentSellingPrice.trim();
+    const trimmedCurrencyCode = currentCurrencyCode.trim();
+    const trimmedSupplierName = currentSupplierName.trim();
 
     const validAttributes = currentAttributes
       .map(attr => ({
@@ -122,24 +143,42 @@ const App: React.FC = () => {
       }))
       .filter(attr => attr.name !== '' && attr.values.length > 0);
 
-    // If no S-number, no product name, no variant code base and no valid attributes, return empty
-    if (!trimmedSNumber && !trimmedProductName && !trimmedVariantCodeBase && validAttributes.length === 0) {
+    const hasBaseInfo = [
+      trimmedSNumber,
+      trimmedProductName,
+      trimmedVariantCodeBase,
+      trimmedPurchasePrice,
+      trimmedSellingPrice,
+      trimmedCurrencyCode,
+      trimmedSupplierName
+    ].some(field => field !== '');
+
+    if (!hasBaseInfo && validAttributes.length === 0) {
       return { productName: currentProductName, headers: newHeaders, variants: [] };
     }
     
     // Base case: No attributes, or attributes result in no combinations.
-    // We generate one line if S-Nummer, Produktnavn or Variantkode Grunnlag is present.
+    // We generate one line if any base info is present.
     if (validAttributes.length === 0) {
         const uniqueVariantCode = generateVariantCode(trimmedVariantCodeBase, 0);
         const cell1ProdName = trimmedProductName.substring(0, 100);
         const cell2ProdName = trimmedProductName.length > 100 ? trimmedProductName.substring(100, 150) : "";
-        if (trimmedSNumber || trimmedProductName || trimmedVariantCodeBase) {
+        if (hasBaseInfo) {
              return { 
                 productName: currentProductName, 
                 headers: newHeaders, 
-                variants: [[trimmedSNumber, uniqueVariantCode, cell1ProdName, cell2ProdName]] 
+                variants: [[
+                  trimmedSNumber,
+                  uniqueVariantCode,
+                  cell1ProdName,
+                  cell2ProdName,
+                  trimmedPurchasePrice,
+                  trimmedSellingPrice,
+                  trimmedCurrencyCode,
+                  trimmedSupplierName
+                ]] 
             };
-        } else { // Should not be reached due to earlier check, but as a safeguard
+        } else {
             return { productName: currentProductName, headers: newHeaders, variants: [] };
         }
     }
@@ -170,11 +209,20 @@ const App: React.FC = () => {
         const uniqueVariantCode = generateVariantCode(trimmedVariantCodeBase, 0);
         const cell1ProdName = trimmedProductName.substring(0, 100);
         const cell2ProdName = trimmedProductName.length > 100 ? trimmedProductName.substring(100, 150) : "";
-         if (trimmedSNumber || trimmedProductName || trimmedVariantCodeBase) {
+         if (hasBaseInfo) {
             return { 
                 productName: currentProductName, 
                 headers: newHeaders, 
-                variants: [[trimmedSNumber, uniqueVariantCode, cell1ProdName, cell2ProdName]] 
+                variants: [[
+                  trimmedSNumber,
+                  uniqueVariantCode,
+                  cell1ProdName,
+                  cell2ProdName,
+                  trimmedPurchasePrice,
+                  trimmedSellingPrice,
+                  trimmedCurrencyCode,
+                  trimmedSupplierName
+                ]] 
             };
         } else {
              return { productName: currentProductName, headers: newHeaders, variants: [] };
@@ -236,7 +284,16 @@ const App: React.FC = () => {
 
         cell2Final = cell2Final.substring(0, 50);
         
-        processedVariants.push([trimmedSNumber, uniqueVariantCode, cell1Final, cell2Final]);
+        processedVariants.push([
+          trimmedSNumber,
+          uniqueVariantCode,
+          cell1Final,
+          cell2Final,
+          trimmedPurchasePrice,
+          trimmedSellingPrice,
+          trimmedCurrencyCode,
+          trimmedSupplierName
+        ]);
     });
 
     return { productName: currentProductName, headers: newHeaders, variants: processedVariants };
@@ -244,13 +301,26 @@ const App: React.FC = () => {
   
 
   const handleGenerateVariants = useCallback(() => {
-    const result = generateCombinations(sNumber, productName, variantCodeBase, attributes);
+    const result = generateCombinations(
+      sNumber,
+      productName,
+      variantCodeBase,
+      attributes,
+      purchasePrice,
+      sellingPrice,
+      currencyCode,
+      supplierName
+    );
     setGeneratedResult(result);
-  }, [sNumber, attributes, productName, variantCodeBase, generateCombinations]);
+  }, [sNumber, attributes, productName, variantCodeBase, purchasePrice, sellingPrice, currencyCode, supplierName, generateCombinations]);
 
   const canGenerate = sNumber.trim() !== '' || 
                       productName.trim() !== '' || 
                       variantCodeBase.trim() !== '' ||
+                      purchasePrice.trim() !== '' ||
+                      sellingPrice.trim() !== '' ||
+                      currencyCode.trim() !== '' ||
+                      supplierName.trim() !== '' ||
                       attributes.some(attr => attr.name.trim() !== '' && attr.values.some(v => v.value.trim() !== ''));
 
 
@@ -266,7 +336,7 @@ const App: React.FC = () => {
 
         <section className="bg-white p-6 rounded-lg shadow-md border border-slate-200 mb-6">
           <h2 className="text-xl font-semibold text-slate-700 mb-4">Produktinformasjon</h2>
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label htmlFor="productName" className="block text-sm font-medium text-slate-600 mb-1">
                 Produktnavn (valgfritt)
@@ -293,7 +363,7 @@ const App: React.FC = () => {
                 className="w-full p-2 rounded-md transition-shadow bg-slate-700 text-slate-50 placeholder-slate-400 border border-slate-600 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
               />
             </div>
-            <div>
+            <div className="md:col-span-2">
               <label htmlFor="variantCodeBase" className="block text-sm font-medium text-slate-600 mb-1">
                 Variantkode Grunnlag (valgfritt)
               </label>
@@ -309,22 +379,67 @@ const App: React.FC = () => {
                 Systemet legger til ".1", ".2" osv. hvis ingen nummerering finnes. Hvis basen er "Vare-1", blir det "Vare-1", "Vare-2". Hvis "Vare.5", blir det "Vare.5", "Vare.6".
               </p>
             </div>
+             <div>
+              <label htmlFor="purchasePrice" className="block text-sm font-medium text-slate-600 mb-1">
+                Innpris (valgfritt)
+              </label>
+              <input
+                type="text"
+                id="purchasePrice"
+                value={purchasePrice}
+                onChange={(e) => { setPurchasePrice(e.target.value); setGeneratedResult(null); }}
+                placeholder="F.eks. 1500"
+                className="w-full p-2 rounded-md transition-shadow bg-slate-700 text-slate-50 placeholder-slate-400 border border-slate-600 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="sellingPrice" className="block text-sm font-medium text-slate-600 mb-1">
+                Utpris (valgfritt)
+              </label>
+              <input
+                type="text"
+                id="sellingPrice"
+                value={sellingPrice}
+                onChange={(e) => { setSellingPrice(e.target.value); setGeneratedResult(null); }}
+                placeholder="F.eks. 2999"
+                className="w-full p-2 rounded-md transition-shadow bg-slate-700 text-slate-50 placeholder-slate-400 border border-slate-600 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+              />
+            </div>
+             <div>
+              <label htmlFor="currencyCode" className="block text-sm font-medium text-slate-600 mb-1">
+                Valutakode (valgfritt)
+              </label>
+              <input
+                type="text"
+                id="currencyCode"
+                value={currencyCode}
+                onChange={(e) => { setCurrencyCode(e.target.value); setGeneratedResult(null); }}
+                placeholder="F.eks. NOK"
+                className="w-full p-2 rounded-md transition-shadow bg-slate-700 text-slate-50 placeholder-slate-400 border border-slate-600 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+              />
+            </div>
+             <div>
+              <label htmlFor="supplierName" className="block text-sm font-medium text-slate-600 mb-1">
+                Leverandørnavn (valgfritt)
+              </label>
+              <input
+                type="text"
+                id="supplierName"
+                value={supplierName}
+                onChange={(e) => { setSupplierName(e.target.value); setGeneratedResult(null); }}
+                placeholder="F.eks. Kontormøbler AS"
+                className="w-full p-2 rounded-md transition-shadow bg-slate-700 text-slate-50 placeholder-slate-400 border border-slate-600 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+              />
+            </div>
           </div>
         </section>
 
         <section className="mb-8">
-          <div className="flex justify-between items-center mb-4">
+          <div className="mb-4">
             <h2 className="text-xl font-semibold text-slate-700">Attributter</h2>
-            <button
-              onClick={handleAddAttribute}
-              className="flex items-center space-x-2 bg-sky-500 hover:bg-sky-600 text-white font-medium py-2 px-4 rounded-md transition-colors shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
-            >
-              <PlusIcon />
-              <span>Legg til attributt</span>
-            </button>
           </div>
           {attributes.length === 0 ? (
-            <p className="text-slate-500 text-center py-4">Ingen attributter lagt til. Klikk på knappen for å legge til den første.</p>
+            <p className="text-slate-500 text-center py-4">Ingen attributter lagt til. Klikk på knappen under for å legge til den første.</p>
           ) : (
             <div className="space-y-6">
               {attributes.map((attr, index) => (
@@ -343,7 +458,14 @@ const App: React.FC = () => {
           )}
         </section>
 
-        <div className="text-center mb-8">
+        <div className="flex justify-center items-center gap-4 mb-8">
+          <button
+              onClick={handleAddAttribute}
+              className="flex items-center space-x-2 bg-sky-500 hover:bg-sky-600 text-white font-semibold py-3 px-6 rounded-lg text-lg shadow-md hover:shadow-lg transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+            >
+              <PlusIcon />
+              <span>Legg til attributt</span>
+            </button>
           <button
             onClick={handleGenerateVariants}
             disabled={!canGenerate}
